@@ -1,0 +1,66 @@
+# ============================================================
+# ARCHON COOLIFY ENVIRONMENT VARIABLES
+# Copy and paste this entire block into Coolify's environment section
+# ============================================================
+
+# REQUIRED: Supabase Configuration
+SUPABASE_URL=https://mcwffikvukcdsrshyeyj.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd2ZmaWt2dWtjZHNyc2h5ZXlqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDMzNjUzNiwiZXhwIjoyMDc1OTEyNTM2fQ.UNptu0oNm4M_yAheyNPKqtH4R4ql0reXxdoiH1vfV6g
+
+# Service Ports (Keep as defaults)
+ARCHON_SERVER_PORT=8181
+ARCHON_MCP_PORT=8051
+ARCHON_AGENTS_PORT=8052
+ARCHON_UI_PORT=3737
+
+# Production Mode Configuration
+SERVICE_DISCOVERY_MODE=production
+LOG_LEVEL=INFO
+PROD=true
+
+# Production Service URLs (Your subdomains)
+ARCHON_SERVER_URL=https://api.craftedbymonish.space
+ARCHON_MCP_URL=https://mcp.craftedbymonish.space
+ARCHON_AGENTS_URL=https://agents.craftedbymonish.space
+ARCHON_FRONTEND_URL=https://archon.craftedbymonish.space
+
+# Frontend API URL (same as ARCHON_SERVER_URL)
+VITE_API_URL=https://api.craftedbymonish.space
+
+# CORS Security (your frontend domain)
+CORS_ORIGINS=https://archon.craftedbymonish.space
+
+# Features
+AGENTS_ENABLED=true
+
+# ============================================================
+# OPTIONAL: Add your API keys below for full functionality
+# ============================================================
+
+# AI Provider API Keys (at least one recommended)
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GOOGLE_API_KEY=
+
+# Observability (optional)
+LOGFIRE_TOKEN=
+
+# ============================================================
+# DEPLOYMENT INSTRUCTIONS
+# ============================================================
+# 
+# 1. In Coolify, create a new Docker Compose service
+# 2. Set repository to your forked GitHub repo
+# 3. Set Docker Compose file to: docker-compose.prod.yml
+# 4. Copy and paste all variables above into the Environment section
+# 5. Configure the following subdomains in Coolify:
+#    - archon.craftedbymonish.space → archon-frontend (port 80)
+#    - api.craftedbymonish.space → archon-server (port 8181)
+#    - mcp.craftedbymonish.space → archon-mcp (port 8051)
+#    - agents.craftedbymonish.space → archon-agents (port 8052)
+# 6. Enable SSL/TLS for all subdomains
+# 7. Deploy!
+#
+# For detailed instructions, see DEPLOYMENT.md
+# ============================================================
+

@@ -1,0 +1,171 @@
+# Production Docker Compose Configuration for Coolify
+# This configuration is optimized for production deployment with:
+# - No development volume mounts
+# - Production-ready builds
+# - Environment-based service URLs
+# - Proper security configurations
+
+services:
+  # Server Service (FastAPI + Socket.IO + Crawling)
+  archon-server:
+    build:
+      context: ./python
+      dockerfile: Dockerfile.server
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        ARCHON_SERVER_PORT: ${ARCHON_SERVER_PORT:-8181}
+    container_name: archon-server
+    ports:
+      - "${ARCHON_SERVER_PORT:-8181}:${ARCHON_SERVER_PORT:-8181}"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
+      - SERVICE_DISCOVERY_MODE=${SERVICE_DISCOVERY_MODE:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
+      - ARCHON_MCP_PORT=${ARCHON_MCP_PORT:-8051}
+      - ARCHON_AGENTS_PORT=${ARCHON_AGENTS_PORT:-8052}
+      - AGENTS_ENABLED=${AGENTS_ENABLED:-true}
+      - ARCHON_HOST=${ARCHON_HOST:-api.craftedbymonish.space}
+      # Production service URLs
+      - ARCHON_SERVER_URL=${ARCHON_SERVER_URL:-https://api.craftedbymonish.space}
+      - ARCHON_MCP_URL=${ARCHON_MCP_URL:-https://mcp.craftedbymonish.space}
+      - ARCHON_AGENTS_URL=${ARCHON_AGENTS_URL:-https://agents.craftedbymonish.space}
+      - ARCHON_FRONTEND_URL=${ARCHON_FRONTEND_URL:-https://archon.craftedbymonish.space}
+      # CORS configuration
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://archon.craftedbymonish.space}
+      - PROD=${PROD:-true}
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:${ARCHON_SERVER_PORT:-8181}/health'')"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Lightweight MCP Server Service (HTTP-based)
+  archon-mcp:
+    build:
+      context: ./python
+      dockerfile: Dockerfile.mcp
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        ARCHON_MCP_PORT: ${ARCHON_MCP_PORT:-8051}
+    container_name: archon-mcp
+    ports:
+      - "${ARCHON_MCP_PORT:-8051}:${ARCHON_MCP_PORT:-8051}"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
+      - SERVICE_DISCOVERY_MODE=${SERVICE_DISCOVERY_MODE:-production}
+      - TRANSPORT=sse
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Production service URLs
+      - ARCHON_SERVER_URL=${ARCHON_SERVER_URL:-https://api.craftedbymonish.space}
+      - ARCHON_MCP_URL=${ARCHON_MCP_URL:-https://mcp.craftedbymonish.space}
+      - ARCHON_AGENTS_URL=${ARCHON_AGENTS_URL:-https://agents.craftedbymonish.space}
+      - API_SERVICE_URL=${ARCHON_SERVER_URL:-https://api.craftedbymonish.space}
+      - AGENTS_SERVICE_URL=${ARCHON_AGENTS_URL:-https://agents.craftedbymonish.space}
+      - AGENTS_ENABLED=${AGENTS_ENABLED:-true}
+      - ARCHON_MCP_PORT=${ARCHON_MCP_PORT:-8051}
+      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
+      - ARCHON_AGENTS_PORT=${ARCHON_AGENTS_PORT:-8052}
+    networks:
+      - app-network
+    depends_on:
+      archon-server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          'python -c "import socket; s=socket.socket(); s.connect((''localhost'', ${ARCHON_MCP_PORT:-8051})); s.close()"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # AI Agents Service (ML/Reranking)
+  archon-agents:
+    build:
+      context: ./python
+      dockerfile: Dockerfile.agents
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        ARCHON_AGENTS_PORT: ${ARCHON_AGENTS_PORT:-8052}
+    container_name: archon-agents
+    ports:
+      - "${ARCHON_AGENTS_PORT:-8052}:${ARCHON_AGENTS_PORT:-8052}"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
+      - SERVICE_DISCOVERY_MODE=${SERVICE_DISCOVERY_MODE:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ARCHON_AGENTS_PORT=${ARCHON_AGENTS_PORT:-8052}
+      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
+      # Production service URLs
+      - ARCHON_SERVER_URL=${ARCHON_SERVER_URL:-https://api.craftedbymonish.space}
+      - ARCHON_AGENTS_URL=${ARCHON_AGENTS_URL:-https://agents.craftedbymonish.space}
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:${ARCHON_AGENTS_PORT:-8052}/health'')"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend - Production Build
+  archon-frontend:
+    build:
+      context: ./archon-ui-main
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.craftedbymonish.space}
+    container_name: archon-ui
+    ports:
+      - "${ARCHON_UI_PORT:-3737}:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-https://api.craftedbymonish.space}
+      - PROD=${PROD:-true}
+    networks:
+      - app-network
+    depends_on:
+      archon-server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge
+

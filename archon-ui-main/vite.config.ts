@@ -13,6 +13,9 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
   // Load environment variables
   const env = loadEnv(mode, process.cwd(), '');
   
+  // Determine if we're in production mode
+  const isProduction = mode === 'production' || env.PROD === 'true';
+  
   // Get host and port from environment variables or use defaults
   // For internal Docker communication, use the service name
   // For external access, use the HOST from environment
@@ -28,8 +31,8 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
     plugins: [
       tailwindcss(),
       react(),
-      // Custom plugin to add test endpoint
-      {
+      // Custom plugin to add test endpoint (development only)
+      ...(!isProduction ? [{
         name: 'test-runner',
         configureServer(server) {
           // Serve coverage directory statically
@@ -278,7 +281,7 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
             });
           });
         }
-      }
+      }] : [])
     ],
     server: {
       host: '0.0.0.0', // Listen on all network interfaces with explicit IP
@@ -294,7 +297,8 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
           : [];
         return [...new Set([...defaultHosts, ...hostFromEnv, ...customHosts])];
       })(),
-      proxy: {
+      // Only use proxy in development mode
+      proxy: isProduction ? undefined : {
         '/api': {
           target: `http://${proxyHost}:${port}`,
           changeOrigin: true,

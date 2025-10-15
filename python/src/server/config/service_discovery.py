@@ -17,6 +17,7 @@ class Environment(Enum):
 
     DOCKER_COMPOSE = "docker_compose"
     LOCAL = "local"
+    PRODUCTION = "production"
 
 
 class ServiceDiscovery:
@@ -74,8 +75,19 @@ class ServiceDiscovery:
     @staticmethod
     def _detect_environment() -> Environment:
         """Detect the current deployment environment"""
+        # Check for explicit production mode via environment variable
+        discovery_mode = os.getenv("SERVICE_DISCOVERY_MODE", "").lower()
+        if discovery_mode == "production":
+            return Environment.PRODUCTION
+        
         # Check for Docker environment
         if os.path.exists("/.dockerenv") or os.getenv("DOCKER_CONTAINER"):
+            # If in Docker but SERVICE_DISCOVERY_MODE is docker_compose, use that
+            if discovery_mode == "docker_compose":
+                return Environment.DOCKER_COMPOSE
+            # If in Docker and production URLs are set, assume production
+            if os.getenv("ARCHON_SERVER_URL") or os.getenv("ARCHON_MCP_URL"):
+                return Environment.PRODUCTION
             return Environment.DOCKER_COMPOSE
 
         # Default to local development
@@ -104,7 +116,33 @@ class ServiceDiscovery:
                 f"Unknown service: {service}. Valid services are: {list(self.DEFAULT_PORTS.keys())}"
             )
 
-        if self.environment == Environment.DOCKER_COMPOSE:
+        if self.environment == Environment.PRODUCTION:
+            # Production - use full URLs from environment variables
+            url_env_map = {
+                "api": "ARCHON_SERVER_URL",
+                "archon-server": "ARCHON_SERVER_URL",
+                "mcp": "ARCHON_MCP_URL",
+                "archon-mcp": "ARCHON_MCP_URL",
+                "agents": "ARCHON_AGENTS_URL",
+                "archon-agents": "ARCHON_AGENTS_URL",
+            }
+            
+            env_var = url_env_map.get(service, url_env_map.get(service_name))
+            if env_var:
+                url = os.getenv(env_var)
+                if url:
+                    # Remove trailing slash if present
+                    url = url.rstrip('/')
+                    self._cache[cache_key] = url
+                    return url
+            
+            # Fallback to default production URL pattern if env var not set
+            # This shouldn't happen in properly configured production
+            raise ValueError(
+                f"Production mode requires {env_var} environment variable to be set"
+            )
+
+        elif self.environment == Environment.DOCKER_COMPOSE:
             # Docker Compose uses service names directly
             # Check for override via environment variable
             host = os.getenv(f"{service_name.upper().replace('-', '_')}_HOST", service_name)
@@ -186,6 +224,11 @@ class ServiceDiscovery:
     def is_local(self) -> bool:
         """Check if running locally"""
         return self.environment == Environment.LOCAL
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production"""
+        return self.environment == Environment.PRODUCTION
 
 
 # Global instance for convenience - lazy loaded
