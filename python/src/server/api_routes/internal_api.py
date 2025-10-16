@@ -44,6 +44,11 @@ def is_internal_request(request: Request) -> bool:
                 logger.info(f"Allowing Docker network request from {client_host}")
                 return True
 
+    # Check if it's a private network IP (10.0.0.0/8 range)
+    if client_host.startswith("10."):
+        logger.info(f"Allowing private network request from {client_host}")
+        return True
+
     # Check if it's localhost
     if client_host in ["127.0.0.1", "::1", "localhost"]:
         return True
